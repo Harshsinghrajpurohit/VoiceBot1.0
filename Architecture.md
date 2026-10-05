@@ -49,7 +49,9 @@ START → input → fast-path check
 response → END
 ```
 
-Speech is outside the graph until the voice loop exists. Phase 1 is text in, text out.
+Speech is outside the graph until the voice loop exists.
+
+Phase 1 is the slice that exists now: text in, one `generate` node, Ollama, text out. The fast-path check is not in the graph yet. `exit` in the CLI only leaves the program. Context is capped with `OLLAMA_NUM_CTX` (default 2048) because this model advertises a 128k window and this laptop has 8 GB of RAM.
 
 ## Latency rules
 
@@ -77,6 +79,6 @@ Playwright, Google Calendar, filesystem, GitHub, LinkedIn. Each server's real to
 
 Current web information uses browser capability. There is no separate news server.
 
-## Not in this phase
+## Not built yet
 
-No `app/` code, no voice loop, no MCP client, no memory store. Those start in later phases, one phase at a time.
+No voice loop, no MCP client, no memory store. Those start in later phases, one phase at a time.

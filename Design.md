@@ -10,6 +10,8 @@ It is about 2 GB, which matches a small 3B-class quant. The tag `llama3.2:3b` is
 
 Ollama URL default: `http://127.0.0.1:11434`.
 
+`llama3.2:latest` reports a 131072-token window. Phase 1 sets `OLLAMA_NUM_CTX` to 2048 and `OLLAMA_NUM_PREDICT` to 128. A larger window would spend RAM and time on context this laptop does not need for a short reply.
+
 ## Speech
 
 Both sides stay on this machine. No cloud speech APIs.

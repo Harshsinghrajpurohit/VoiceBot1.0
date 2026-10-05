@@ -2,7 +2,7 @@
 
 Build one phase at a time. Stop at the end of each phase.
 
-Current phase: **0 — foundation.** Status: complete. No application code yet.
+Current phase: **1 — local model and graph.** Status: complete.
 
 ## 0 — Foundation
 

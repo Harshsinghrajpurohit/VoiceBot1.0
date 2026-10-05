@@ -1,0 +1,10 @@
+# Phase 1. Later phases add their own packages when they start.
+
+# Workflow graph: input -> model -> response.
+langgraph==1.2.12
+
+# ChatOllama client for the local Ollama server.
+langchain-ollama==1.1.0
+
+# Loads OLLAMA_MODEL and OLLAMA_BASE_URL from .env.
+python-dotenv==1.2.4
