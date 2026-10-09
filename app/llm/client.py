@@ -51,5 +51,24 @@ def make_llm(settings: Settings) -> ChatOllama:
         num_ctx=settings.num_ctx,
         num_predict=settings.num_predict,
         temperature=0.2,
+        keep_alive=settings.ollama_keep_alive,
         sync_client_kwargs={"timeout": settings.request_timeout},
     )
+
+
+def warm_up(settings: Settings) -> None:
+    """Load the model into Ollama now so the first turn skips load time."""
+    payload = json.dumps(
+        {"model": settings.ollama_model, "keep_alive": settings.ollama_keep_alive}
+    ).encode("utf-8")
+    url = settings.ollama_base_url.rstrip("/") + "/api/generate"
+    request = urllib.request.Request(
+        url, data=payload, headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=settings.request_timeout):
+            pass
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise OllamaUnavailable(
+            "Ollama is not reachable at " + settings.ollama_base_url
+        ) from exc

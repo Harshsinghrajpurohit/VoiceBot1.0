@@ -2,7 +2,11 @@
 
 Build one phase at a time. Stop at the end of each phase.
 
-Current phase: **1 — local model and graph.** Status: complete.
+Current phase: **12 — Optimization.** Status: complete.
+
+Phase 7 remains available: web search, filesystem, remote GitHub, and Google Calendar are connected. Playwright is paused.
+
+Playwright sign-in is deferred. The browser it opened was a separate window, so the user was not signed in. Using the existing Chrome profile needs the Playwright extension, or remote debugging enabled in Chrome. Do not start Playwright from the voice loop until that is fixed.
 
 ## 0 — Foundation
 
@@ -50,14 +54,22 @@ Structured persistent memory: remember, retrieve, forget, inspect, delete. Retri
 
 Several tools in one request. One planning model call when possible. Parallel execution only for independent tools.
 
+Done: `reason` splits on `and then`/`and`/`;` and plans one call per part from different sources (GitHub, filesystem, web search, browser). Two or more independent calls run together in `run_multi` (`ThreadPoolExecutor`, max 4), then one short model call speaks the combined answer. Single-tool requests keep their old path (model chooses calculator/browser). Dependent tools wait — this phase only runs independent calls.
+
 ## 10 — Web and browser
 
 Current information and site interaction through browser capability. Keep this separate from local deterministic commands.
+
+Done: web search stays the default for current information; the browser is opt-in (`PLAYWRIGHT_ENABLED=1`) and the session wires `PlaywrightBrowser` only then. Open-page requests use `resolve_page` deterministically and read via `browser_navigate` + `browser_snapshot`, trimmed to 1200 chars with an allow-list of those two tools. Facts never open the browser; without the flag the old model path is unchanged. Signed-in browsing stays paused until the Chrome profile problem is fixed. `tests/test_phase10.py` locks the separation.
 
 ## 11 — Voice performance
 
 Voice activity detection, streaming, sentence-level speech, buffering, barge-in. Primary metric: time until the user hears something useful.
 
+Done: capture uses per-turn room calibration (0.3 s) with a noise-adaptive energy threshold (noise x3, floor 0.001), records all mics and keeps the loudest, stops after 0.8 s trailing silence only once 0.4 s of speech is heard (min 0.8 s, max 8 s), trims leading/trailing silence, and asks you to repeat when nothing usable was caught. Whisper runs with `vad_filter=True`, `min_silence_duration_ms=800`, `condition_on_previous_text=False`, `no_speech_threshold=0.6`, and empty output is silence, not a request. Replies are spoken sentence-first with `first_audio_seconds` logged per turn. Measured on Piper `en_US-lessac-medium`: two-sentence reply whole-synth ~1.1 s vs first-sentence ~0.3 s. Barge-in (stop playback on new speech) is not done — playback still runs to completion.
+
 ## 12 — Optimization
 
 Change only what the measurements justify: prompt size, context, caching, warm-up, shorter answers, model choice.
+
+Done: measured first — cold first turn ~9 s (load ~8.8 s), warm turns 0.3–0.6 s. The only justified change: `OLLAMA_KEEP_ALIVE=30m` (new setting, passed to `ChatOllama`) plus a `warm_up()` call at session startup so the load happens before the first voice turn, not during it. `num_ctx=2048`, `num_predict=128`, prompt/history caps, and model choice are unchanged — warm-turn latency is already sub-second, so no other change was justified. New cross-process runs still pay one load (Ollama-side eviction under 8 GB RAM / 4 GB VRAM); within a session all turns after the first stay warm. `tests/test_phase1.py` locks the setting and warm-up call.

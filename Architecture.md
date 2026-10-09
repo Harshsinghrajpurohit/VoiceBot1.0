@@ -49,9 +49,22 @@ START → input → fast-path check
 response → END
 ```
 
-Speech is outside the graph until the voice loop exists.
+`app/speech/loop.py` is the voice loop. One turn records the microphone, transcribes with Faster Whisper, sends that text through the agent, and speaks the answer with Piper. Speech stays outside the graph. `python main.py` starts this loop. `python main.py --text` keeps the typed entry. MCP is not part of the loop.
 
-Phase 1 is the slice that exists now: text in, one `generate` node, Ollama, text out. The fast-path check is not in the graph yet. `exit` in the CLI only leaves the program. Context is capped with `OLLAMA_NUM_CTX` (default 2048) because this model advertises a 128k window and this laptop has 8 GB of RAM.
+The graph that exists now:
+
+```text
+START → route
+          ├── fast → END
+          └── reason → tool, if the model asked for one → END
+                   └── multi, if 2+ independent tools were planned → END
+```
+
+Fast requests (time, date, stop, cancel, repeat, clear, exit) never call the model. Other requests make one model call. If that call asks for the calculator, the program evaluates the expression and answers. There is no second model call, because the tool result is already the reply. Recent turns sent to the model are capped at six messages.
+
+Each turn records intent, model, and tool time, prompt size in characters and tokens, generation speed, and model load time when Ollama reports it. The first measured baseline is in `Baseline.md`.
+
+Context is capped with `OLLAMA_NUM_CTX` (default 2048) because this model advertises a 128k window and this laptop has 8 GB of RAM. Speech-to-text sits in front of the graph, and Piper speaks the answer after it. `app/speech/loop.py` runs that sequence as one turn. MCP and persistent memory are still later.
 
 ## Latency rules
 
@@ -73,12 +86,12 @@ Read-only tools can run directly. Destructive tools (delete, send, modify, publi
 
 If Ollama is down, deterministic commands still work. If a tool is down, say which one failed. If Piper fails, print the text. If Whisper fails, say so and allow another attempt.
 
-## Intended tools (not built yet)
+## Intended tools
 
-Playwright, Google Calendar, filesystem, GitHub, LinkedIn. Each server's real tools and auth must be checked in its docs before any client code is written.
+Web search MCP is connected. The allow-list is `web_search`. It starts only for a question that needs current information, then one model call speaks the result. Filesystem MCP is connected for Documents, Downloads, and Desktop. The allow-list is `list_directory`, `read_text_file`, and `search_files`. Write, edit, move, and delete are refused. Playwright MCP is opt-in via `PLAYWRIGHT_ENABLED=1` (Phase 10, public pages only): open-page requests resolve deterministically, then `browser_navigate` + `browser_snapshot` (trimmed, allow-listed to those two). Facts never open the browser, and signed-in browsing stays paused until the Chrome profile problem is fixed. GitHub's remote MCP server is connected in read-only mode for repos, issues, pull requests, and the signed-in user. The token stays in `.env`. Google Calendar's official remote MCP server is connected read-only plus free-busy (`list_events`, `get_event`, `list_calendars`, `search_events`, `suggest_time`); writes are refused. Sign-in is one browser OAuth flow (`python -m app.mcp.calendar_login`) with the refresh token in `data/` (gitignored). LinkedIn is not connected. Each remaining server's real tools and auth must be checked in its docs before any client code is written.
 
-Current web information uses browser capability. There is no separate news server.
+There is no separate news server. Current web information uses web search.
 
-## Not built yet
+## Memory
 
-No voice loop, no MCP client, no memory store. Those start in later phases, one phase at a time.
+Structured records live in `data/memory.json`: fact, preference, episode, and working context. The file is read only when the user asks to remember, forget, inspect, or delete. Deleting everything waits for an explicit confirmation.

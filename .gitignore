@@ -7,7 +7,12 @@ __pycache__/
 .mypy_cache/
 
 logs/
+data/
 *.log
+
+# OAuth client secrets. Never commit these.
+crerdentials/
+credentials/
 
 models/
 voices/

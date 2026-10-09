@@ -8,3 +8,15 @@ langchain-ollama==1.1.0
 
 # Loads OLLAMA_MODEL and OLLAMA_BASE_URL from .env.
 python-dotenv==1.2.4
+
+# Phase 4. Local speech-to-text. Not in the earlier stack.
+# Microphone capture. Depends on PortAudio.
+sounddevice==0.5.6
+# Audio arrays for capture and resampling. Required by sounddevice as well.
+numpy==2.5.3
+# Faster Whisper (CTranslate2). The small model runs on CPU so the GPU stays with Ollama.
+faster-whisper==1.2.1
+
+# Phase 5. Local text-to-speech. One Piper voice, played with sounddevice.
+# CPU only, so the GPU stays with Ollama. onnxruntime is already installed.
+piper-tts==1.8.0

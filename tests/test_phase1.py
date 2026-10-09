@@ -11,6 +11,7 @@ from app.llm.client import (
     OllamaUnavailable,
     ensure_model,
     list_models,
+    warm_up,
 )
 
 
@@ -20,6 +21,9 @@ class FakeMessage:
 
 
 class FakeLLM:
+    def bind_tools(self, tools):
+        return self
+
     def invoke(self, messages):
         self.messages = messages
         return FakeMessage("Hello.")
@@ -34,6 +38,15 @@ class SettingsTests(unittest.TestCase):
         ):
             settings = load_settings()
         self.assertEqual(settings.ollama_model, "llama3.2:latest")
+
+    def test_keep_alive_comes_from_env(self):
+        with patch.dict(
+            "os.environ",
+            {"OLLAMA_KEEP_ALIVE": "30m"},
+            clear=False,
+        ):
+            settings = load_settings()
+        self.assertEqual(settings.ollama_keep_alive, "30m")
 
 
 class OllamaCheckTests(unittest.TestCase):
@@ -58,6 +71,35 @@ class OllamaCheckTests(unittest.TestCase):
         with patch("app.llm.client.urllib.request.urlopen", return_value=response):
             with self.assertRaises(ModelUnavailable):
                 ensure_model(settings)
+
+    def test_warm_up_down(self):
+        error = urllib.error.URLError("refused")
+        settings = load_settings()
+        with patch("app.llm.client.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(OllamaUnavailable):
+                warm_up(settings)
+
+    def test_warm_up_keeps_the_model_loaded(self):
+        seen = {}
+
+        class FakeResponse(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+        def fake_urlopen(request, timeout=None):
+            seen["url"] = request.full_url
+            seen["body"] = json.loads(request.data.decode("utf-8"))
+            return FakeResponse(b"{}")
+
+        settings = load_settings()
+        with patch("app.llm.client.urllib.request.urlopen", side_effect=fake_urlopen):
+            warm_up(settings)
+        self.assertTrue(seen["url"].endswith("/api/generate"))
+        self.assertEqual(seen["body"]["model"], settings.ollama_model)
+        self.assertEqual(seen["body"]["keep_alive"], settings.ollama_keep_alive)
 
 
 class GraphTests(unittest.TestCase):
